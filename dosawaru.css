@@ -1,0 +1,19 @@
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+#header {
+  margin: 0;
+  padding: 0;
+  height: 10%;
+}
+
+svg {
+  width: 100vw;
+  height: calc(100vh - 10%);
+  display: block;
+  overflow: hidden;
+}
