@@ -27,20 +27,17 @@ document.addEventListener("DOMContentLoaded", function () {
       score: +d["Influence Score"],
     }));
 
-    console.log(nodes);
-
     // Process data to links
     const links = nodes.slice(1).map((node, index) => ({
       source: nodes[index].id,
       target: node.id,
     }));
 
-    console.log(links);
-
+    // Set radius scale based on influence score
     const radiusScale = d3
       .scalePow()
       .exponent(8)
-      .domain([70, d3.max(nodes, (d) => d.score)])
+      .domain([0, d3.max(nodes, (d) => d.score)])
       .range([5, 65]);
 
     // Create simulation
@@ -64,7 +61,8 @@ document.addEventListener("DOMContentLoaded", function () {
       .enter()
       .append("line")
       .attr("class", "links")
-      .attr("stroke-width", 1)
+      .attr("stroke-width", 1.5)
+      .attr("opacity", 0.5)
       .attr("stroke", "#999");
 
     // Draw nodes
@@ -73,7 +71,8 @@ document.addEventListener("DOMContentLoaded", function () {
       .data(nodes)
       .enter()
       .append("g")
-      .attr("class", "node");
+      .attr("class", "node")
+      .call(drag(simulation));
 
     // Shape nodes into circles
     node
@@ -87,10 +86,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Add images to nodes
     node
       .append("image")
-      .attr("href", (d) => {
-        console.log(`profile_pics/${d.name}.jpg`);
-        return `profile_pics/${d.name}.jpg`;
-      })
+      .attr("href", (d) => `profile_pics/${d.name}.jpg`)
       .attr("width", (d) => radiusScale(d.score) * 2)
       .attr("height", (d) => radiusScale(d.score) * 2)
       .attr("x", (d) => -radiusScale(d.score))
@@ -118,5 +114,31 @@ document.addEventListener("DOMContentLoaded", function () {
         .attr("x2", (d) => d.target.x)
         .attr("y2", (d) => d.target.y);
     });
+
+    // Drag function
+    function drag(simulation) {
+      function dragestart(event) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        event.subject.fx = event.subject.x;
+        event.subject.fy = event.subject.y;
+      }
+
+      function dragged(event) {
+        event.subject.fx = event.x;
+        event.subject.fy = event.y;
+      }
+
+      function drageend(event) {
+        if (!event.active) simulation.alphaTarget(0);
+        event.subject.fx = null;
+        event.subject.fy = null;
+      }
+
+      return d3
+        .drag()
+        .on("start", dragestart)
+        .on("drag", dragged)
+        .on("end", drageend);
+    }
   });
 });
