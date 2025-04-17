@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", function () {
       .scalePow()
       .exponent(8)
       .domain([0, d3.max(nodes, (d) => d.score)])
-      .range([5, 65]);
+      .range([5, 55]);
 
     // Custom color set
     const pastelColors = [
@@ -109,9 +109,9 @@ document.addEventListener("DOMContentLoaded", function () {
           .forceLink()
           .id((d) => d.id)
           .links(allLinks)
-          .distance(350)
+          .distance(600)
       )
-      .force("charge", d3.forceManyBody().strength(-60))
+      .force("charge", d3.forceManyBody().strength(-120))
       .force("center", d3.forceCenter(width / 2, height / 2));
 
     // Draw links
@@ -122,8 +122,8 @@ document.addEventListener("DOMContentLoaded", function () {
       .append("line")
       .attr("class", "links")
       .attr("stroke-width", 1.5)
-      .attr("opacity", (d) => (d.source.isHub && d.target.isHub ? 0 : 0.5))
-      .attr("stroke", "#999");
+      .attr("stroke", "grey")
+      .attr("opacity", 0);
 
     // Draw nodes
     const node = svg
@@ -132,6 +132,7 @@ document.addEventListener("DOMContentLoaded", function () {
       .enter()
       .append("g")
       .attr("class", "node")
+      .attr("opacity", 0)
       .call(drag(simulation));
 
     // Shape nodes into circles (for non-hub nodes)
@@ -144,23 +145,37 @@ document.addEventListener("DOMContentLoaded", function () {
       .attr("cx", 0)
       .attr("cy", 0);
 
-    // Shape nodes into circles (for hub nodes)
+    // Shape nodes into squares (for hub nodes)
     node
       .filter((d) => d.isHub)
-      .append("circle")
-      .attr("r", (d) => 40)
-      .attr("fill", (d) => colorScale(d.name))
-      .attr("cx", 0)
-      .attr("cy", 0)
-      .attr("stroke", "white")
-      .attr("stroke-width", 1.5);
+      .append("rect")
+      .attr("class", "hub-rect")
+      .attr("x", (d) => -70 / 2)
+      .attr("y", (d) => -70 / 2)
+      .attr("width", (d) => 70)
+      .attr("height", (d) => 70)
+      .attr("rx", 10)
+      .attr("ry", 10)
+      .attr("fill", (d) => colorScale(d.name));
 
-    // Add text label to node hubs
+    // Add borders (for non-hub nodes)
+    node
+      .filter((d) => !d.isHub)
+      .append("circle")
+      .attr("class", "highlight-ring")
+      .attr("r", (d) => radiusScale(d.score) + 1)
+      .attr("fill", "none")
+      .attr("stroke", "white")
+      .attr("stroke-width", 2)
+      .attr("opacity", 0.5);
+
+    // Add text label to hub nodes
     node
       .filter((d) => d.isHub)
       .append("text")
       .attr("class", "hub-label")
       .attr("x", 0)
+      // Position text to center in the square
       .attr("y", (d) => {
         const numLines = d.name.split(" ").length;
         return numLines == 0 ? 0 : -((numLines - 1) * 4);
@@ -174,8 +189,8 @@ document.addEventListener("DOMContentLoaded", function () {
       .append("tspan")
       .attr("x", 0)
       .attr("dy", (d, i) => (i === 0 ? 0 : "1em"))
-      .attr("pointer-events", "none")
-      .text((name) => name);
+      .text((name) => name)
+      .attr("pointer-events", "none");
 
     // Add images to nodes (excluding hubs)
     node
@@ -188,15 +203,28 @@ document.addEventListener("DOMContentLoaded", function () {
       .attr("clip-path", (d) => (d.isHub ? null : `url(#clip-${d.id})`))
       .style("border", "4px solid white");
 
-    // Add tooltip on hover
-    // Update the link color on hover for hubs to match the category color
-    // Open new tab to influencer Instagram page on click
+    // Initial draw animation
+    node
+      .transition()
+      .duration(1200)
+      .delay((d, i) => i * 10)
+      .ease(d3.easeCubic)
+      .attr("opacity", 1);
+
+    link
+      .data(links)
+      .transition()
+      .duration(2000)
+      .ease(d3.easeCubic)
+      .attr("opacity", 0.9);
+
     node
       .on("mouseover", function (event, d) {
+        // Add tooltip on hover
         if (!d.isHub) {
           tooltip
             .transition()
-            .duration(200)
+            .duration(100)
             .ease(d3.easeCubic)
             .style("opacity", 0.9);
           tooltip
@@ -207,6 +235,7 @@ document.addEventListener("DOMContentLoaded", function () {
             .style("left", event.pageX + "px")
             .style("top", event.pageY + "px");
         }
+        // Update the link and node border color on hover for nodes that are part of the same category
         if (d.isHub) {
           const category = d.name;
           link
@@ -216,8 +245,27 @@ document.addEventListener("DOMContentLoaded", function () {
             .transition()
             .duration(250)
             .ease(d3.easeCubic)
-            .attr("stroke-width", 2.5)
-            .attr("opacity", (d) => (d.source.isHub && d.target.isHub ? 0 : 1));
+            .attr("stroke-width", 3);
+
+          node
+            .data(allNodes)
+            // Checks if at least one of the conditions is true (source to tareget or target to source)
+            .filter((n) =>
+              links.some(
+                (l) =>
+                  (l.source.id === d.id && l.target.id === n.id) ||
+                  (l.target.id === d.id && l.source.id === n.id)
+              )
+            )
+            .select(".highlight-ring")
+            .transition()
+            .duration(250)
+            .ease(d3.easeCubic)
+            .attr("r", (d) => radiusScale(d.score) + 1)
+            .attr("fill", "none")
+            .attr("stroke", colorScale(category))
+            .attr("stroke-width", 2)
+            .attr("opacity", 1);
         }
       })
       .on("mouseout", function () {
@@ -227,13 +275,21 @@ document.addEventListener("DOMContentLoaded", function () {
           .ease(d3.easeCubic)
           .style("opacity", 0);
         link
-          .attr("stroke", "#999")
           .transition()
           .duration(250)
           .ease(d3.easeCubic)
-          .attr("stroke-width", 1.5)
-          .attr("opacity", (d) => (d.source.isHub && d.target.isHub ? 0 : 0.5));
+          .attr("stroke", "grey")
+          .attr("stroke-width", 1.5);
+        node
+          .selectAll(".highlight-ring")
+          .transition()
+          .duration(250)
+          .ease(d3.easeCubic)
+          .attr("stroke", "white")
+          .attr("stroke-width", 2)
+          .attr("opacity", 0.5);
       })
+      // Open new tab to influencer Instagram page on click
       .on("click", function (event, d) {
         if (!d.isHub) {
           const url = `https://www.instagram.com/${d.name}/`;
@@ -263,6 +319,19 @@ document.addEventListener("DOMContentLoaded", function () {
         .attr("y2", (d) => d.target.y);
     });
 
+    // Add a small bouncing animation using d3.timer to run infinite loop
+    d3.timer((time) => {
+      allNodes.forEach((d) => {
+        if (!d.isHub) {
+          const bounceX = Math.sin(time * 0.5 + d.id.length) * 10;
+          const bounceY = Math.cos(time * 0.5 + d.id.length) * 10;
+          d.x += bounceX * 0.001;
+          d.y += bounceY * 0.001;
+        }
+      });
+      simulation.alpha(0.01).restart();
+    });
+
     // Drag function
     function drag(simulation) {
       function dragestart(event) {
@@ -274,6 +343,9 @@ document.addEventListener("DOMContentLoaded", function () {
       function dragged(event) {
         event.subject.fx = event.x;
         event.subject.fy = event.y;
+        tooltip
+          .style("left", event.subject.fx + "px")
+          .style("top", event.subject.fy + 20 + "px");
       }
 
       function drageend(event) {
