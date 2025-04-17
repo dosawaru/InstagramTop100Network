@@ -14,8 +14,15 @@
   </head>
   <body>
     <div id="header" class="text-center">
-      <h1>Homework #5: Custom Visualization Design</h1>
-      <h3>Daniel Osawaru - dosawaru@asu.edu</h3>
+      <h2>Homework #5: Custom Visualization Design | Daniel Osawaru - dosawaru@asu.edu</h2>
+      <p> This visualization presents a force-directed network of the top 100 Instagram influencers base on <span><a href="https://www.kaggle.com/datasets/whenamancodes/top-200-influencers-crushing-on-instagram" target="_blank">Kaggle Dataset</a></span>. Each node represents a influencer, using their profile picture, and the size of each node reflects their influence score. Category hubs are connected to the influencer they represent. You can hover over the nodes to see details about the influencers, click a node to visit their Instagram page, and drag the nodes to explore the network layout. There is also a subtle animatioin that keeps the nodes gently moving sround the screen.
+      </br>
+      <span>Marks:</span> Circles (Nodes), Lines (Edges), Text (Labels)
+      <span>Channels:</span> Size (Influence Scores), Color (Differnet Categories), Shape (Influencers and Category Hubs)
+      <span>Visualization Type:</span> Combinatorial
+      <span>Interaction:</span> Hover (Details), Click (Visit Instagram), Drag (Explore Network), Animation (Subtle Movement)
+      <span>Data:</span> Top 100 Instagram Influencers (Note: The dataset was modified to include categories that best describes each influencer, and a Python script was used to scrape the profile pictures of the influencers from their Instagram page)
+      </p> 
     </div>
     <svg></svg>
     <div class="tooltip"></div>
