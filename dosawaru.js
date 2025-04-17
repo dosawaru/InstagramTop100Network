@@ -25,13 +25,54 @@ document.addEventListener("DOMContentLoaded", function () {
       category: d.Category,
       likes: d["Avg. Likes"],
       score: +d["Influence Score"],
+      isHub: false,
     }));
 
     // Process data to links
-    const links = nodes.slice(1).map((node, index) => ({
-      source: nodes[index].id,
-      target: node.id,
-    }));
+    const links = [];
+
+    // Create category hubs
+    const categoryHub = new Map();
+    for (const node of nodes) {
+      // Loop through each node
+      if (!categoryHub.has(node.category)) {
+        // Check if category already exists before creating a new hub
+        categoryHub.set(node.category, {
+          // Create a new hub for the categories
+          id: `category-${node.category}`,
+          name: node.category,
+          isHub: true,
+          score: 87.5,
+        });
+      }
+    }
+
+    // Combine all nodes together
+    const allNodes = [...nodes, ...Array.from(categoryHub.values())];
+
+    // Create links between influencers and their category hubs
+    for (const node of nodes) {
+      const hubNode = categoryHub.get(node.category);
+      if (hubNode) {
+        links.push({
+          // Create a link between the influencer and the hub
+          source: hubNode.id,
+          target: node.id,
+        });
+      }
+    }
+
+    // Create links between each category hubs to connect them together
+    const hubArray = Array.from(categoryHub.values());
+    const hubLinks = hubArray.flatMap((hub, i) =>
+      hubArray.slice(i + 1).map((otherHub) => ({
+        source: hub.id,
+        target: otherHub.id,
+      }))
+    );
+
+    // Combine all links together
+    const allLinks = [...links, ...hubLinks];
 
     // Set radius scale based on influence score
     const radiusScale = d3
@@ -40,24 +81,44 @@ document.addEventListener("DOMContentLoaded", function () {
       .domain([0, d3.max(nodes, (d) => d.score)])
       .range([5, 65]);
 
+    // Custom color set
+    const pastelColors = [
+      "#e29aa5",
+      "#e9b76f",
+      "#d3dc7c",
+      "#94d3a2",
+      "#90bcd1",
+      "#b3a7d6",
+      "#dc91c5",
+      "#84d0c9",
+      "#c9c48a",
+      "#ddbca1",
+    ];
+
+    // Set color for category hubs
+    const colorScale = d3
+      .scaleOrdinal()
+      .domain(categoryHub.keys())
+      .range(pastelColors);
+
     // Create simulation
     const simulation = d3
-      .forceSimulation(nodes)
+      .forceSimulation(allNodes)
       .force(
         "link",
         d3
           .forceLink()
           .id((d) => d.id)
-          .links(links)
-          .distance(200)
+          .links(allLinks)
+          .distance(350)
       )
-      .force("charge", d3.forceManyBody().strength(-70))
+      .force("charge", d3.forceManyBody().strength(-60))
       .force("center", d3.forceCenter(width / 2, height / 2));
 
     // Draw links
     const link = svg
       .selectAll(".link")
-      .data(links)
+      .data(allLinks)
       .enter()
       .append("line")
       .attr("class", "links")
@@ -68,31 +129,65 @@ document.addEventListener("DOMContentLoaded", function () {
     // Draw nodes
     const node = svg
       .selectAll(".node")
-      .data(nodes)
+      .data(allNodes)
       .enter()
       .append("g")
       .attr("class", "node")
       .call(drag(simulation));
 
-    // Shape nodes into circles
+    // Shape nodes into circles (for non-hub nodes)
     node
       .append("clipPath")
       .attr("id", (d) => `clip-${d.id}`)
+      .filter((d) => !d.isHub)
       .append("circle")
       .attr("r", (d) => radiusScale(d.score))
       .attr("cx", 0)
       .attr("cy", 0);
 
-    // Add images to nodes
+    // Shape nodes into circles (for hub nodes)
+    node
+      .filter((d) => d.isHub)
+      .append("circle")
+      .attr("r", (d) => 40)
+      .attr("fill", (d) => colorScale(d.name))
+      .attr("cx", 0)
+      .attr("cy", 0)
+      .attr("stroke", "white")
+      .attr("stroke-width", 1.5);
+
+    // Add text label to node hubs
+    node
+      .filter((d) => d.isHub)
+      .append("text")
+      .attr("class", "hub-label")
+      .attr("x", 0)
+      .attr("y", (d) => {
+        const numLines = d.name.split(" ").length;
+        return numLines == 0 ? 0 : -((numLines - 1) * 4);
+      })
+      .attr("text-anchor", "middle")
+      .style("font-size", "12px")
+      .attr("fill", "black")
+      .selectAll("tspan")
+      .data((d) => d.name.split(" "))
+      .enter()
+      .append("tspan")
+      .attr("x", 0)
+      .attr("dy", (d, i) => (i === 0 ? 0 : "1em"))
+      .attr("pointer-events", "none")
+      .text((name) => name);
+
+    // Add images to nodes (excluding hubs)
     node
       .append("image")
-      .attr("href", (d) => `profile_pics/${d.name}.jpg`)
-      .attr("width", (d) => radiusScale(d.score) * 2)
-      .attr("height", (d) => radiusScale(d.score) * 2)
-      .attr("x", (d) => -radiusScale(d.score))
-      .attr("y", (d) => -radiusScale(d.score))
-      .attr("clip-path", (d) => `url(#clip-${d.id})`)
-      .style("border", "1px solid white");
+      .attr("href", (d) => (d.isHub ? null : `profile_pics/${d.name}.jpg`))
+      .attr("width", (d) => (d.isHub ? 0 : radiusScale(d.score) * 2))
+      .attr("height", (d) => (d.isHub ? 0 : radiusScale(d.score) * 2))
+      .attr("x", (d) => (d.isHub ? 0 : -radiusScale(d.score)))
+      .attr("y", (d) => (d.isHub ? 0 : -radiusScale(d.score)))
+      .attr("clip-path", (d) => (d.isHub ? null : `url(#clip-${d.id})`))
+      .style("border", "4px solid white");
 
     // Dynamically update the positions of the nodes/links and keep nodes within the window bounds
     simulation.on("tick", () => {
