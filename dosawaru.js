@@ -5,7 +5,6 @@ document.addEventListener("DOMContentLoaded", function () {
   Promise.all([d3.csv("Top_Influencers.csv")]).then(function (values) {
     console.log("Loaded Top_Influencers.csv file");
     influencers_data = values[0];
-    console.log(influencers_data);
 
     // Get window dimensions
     const headerHeight = document.querySelector("#header").offsetHeight;
@@ -123,7 +122,7 @@ document.addEventListener("DOMContentLoaded", function () {
       .append("line")
       .attr("class", "links")
       .attr("stroke-width", 1.5)
-      .attr("opacity", 0.5)
+      .attr("opacity", (d) => (d.source.isHub && d.target.isHub ? 0 : 0.5))
       .attr("stroke", "#999");
 
     // Draw nodes
@@ -188,6 +187,60 @@ document.addEventListener("DOMContentLoaded", function () {
       .attr("y", (d) => (d.isHub ? 0 : -radiusScale(d.score)))
       .attr("clip-path", (d) => (d.isHub ? null : `url(#clip-${d.id})`))
       .style("border", "4px solid white");
+
+    // Add tooltip on hover
+    // Update the link color on hover for hubs to match the category color
+    // Open new tab to influencer Instagram page on click
+    node
+      .on("mouseover", function (event, d) {
+        if (!d.isHub) {
+          tooltip
+            .transition()
+            .duration(200)
+            .ease(d3.easeCubic)
+            .style("opacity", 0.9);
+          tooltip
+            .html(
+              `<strong>${d.name}</strong><br>Followers: ${d.followers}
+          <br>Category: ${d.category}<br>Influencer Score: ${d.score}`
+            )
+            .style("left", event.pageX + "px")
+            .style("top", event.pageY + "px");
+        }
+        if (d.isHub) {
+          const category = d.name;
+          link
+            .data(links)
+            .filter((l) => l.source.id === d.id || l.target.id === d.id)
+            .attr("stroke", colorScale(category))
+            .transition()
+            .duration(250)
+            .ease(d3.easeCubic)
+            .attr("stroke-width", 2.5)
+            .attr("opacity", (d) => (d.source.isHub && d.target.isHub ? 0 : 1));
+        }
+      })
+      .on("mouseout", function () {
+        tooltip
+          .transition()
+          .duration(200)
+          .ease(d3.easeCubic)
+          .style("opacity", 0);
+        link
+          .attr("stroke", "#999")
+          .transition()
+          .duration(250)
+          .ease(d3.easeCubic)
+          .attr("stroke-width", 1.5)
+          .attr("opacity", (d) => (d.source.isHub && d.target.isHub ? 0 : 0.5));
+      })
+      .on("click", function (event, d) {
+        if (!d.isHub) {
+          const url = `https://www.instagram.com/${d.name}/`;
+          window.open(url, "_blank");
+          console.log(url);
+        }
+      });
 
     // Dynamically update the positions of the nodes/links and keep nodes within the window bounds
     simulation.on("tick", () => {
